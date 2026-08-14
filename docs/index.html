@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ABSURDO! — Livro de Cartoons</title>
+<style>
+  :root {
+    --navy: #0a1930; --navy-claro: #13284a; --navy-borda: #2a4066;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--navy);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- Portão de código ---------- */
+  #gate {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff;
+    padding: 24px; text-align: center;
+    z-index: 10;
+    /* capa do livro como fundo — a primeira página gerada pelo preparar_site.py */
+    background-image: linear-gradient(rgba(10,25,48,0.55), rgba(10,25,48,0.75)), url('paginas/001.jpg');
+    background-size: cover;
+    background-position: center;
+  }
+  #gate h1 {
+    font-size: 1.1rem; font-weight: 600; margin-bottom: 24px; letter-spacing: 0.02em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  }
+  #gate input {
+    width: 100%; max-width: 280px;
+    font-size: 1.4rem; letter-spacing: 0.15em; text-align: center;
+    text-transform: uppercase;
+    padding: 14px 10px;
+    border-radius: 10px; border: 1px solid var(--navy-borda);
+    background: var(--navy); color: #fff;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  }
+  #gate input::placeholder { color: #93a7c9; }
+  #gate input:focus { outline: none; border-color: #5b7fb8; }
+  #gate button {
+    width: 100%; max-width: 280px;
+    font-size: 1rem; padding: 14px;
+    border-radius: 10px; border: none;
+    background: #fff; color: var(--navy); font-weight: 700;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  }
+  #gate button:active { background: #d8d8d8; }
+  #gate-erro {
+    color: #ffd2d2; font-size: 0.9rem; margin-top: 14px; min-height: 1.2em;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  }
+
+  /* ---------- Leitor ---------- */
+  #viewer {
+    position: fixed; inset: 0;
+    display: none;
+    background: var(--navy);
+  }
+  #pagina {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #pagina img {
+    max-width: 100%; max-height: 100%;
+    width: auto; height: auto;
+    object-fit: contain;
+    user-select: none; -webkit-user-drag: none;
+  }
+  #pagina .texto-placeholder {
+    color: #a9b8d4; font-size: 1rem; text-align: center;
+    white-space: pre-wrap; padding: 40px; line-height: 1.6;
+  }
+
+  /* zonas de toque invisíveis, para quem preferir tocar a deslizar */
+  .zona-toque { position: absolute; top: 0; bottom: 0; width: 33%; z-index: 2; }
+  #zona-anterior { left: 0; }
+  #zona-seguinte { right: 0; }
+
+  #contador {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.55); font-size: 0.75rem;
+    background: rgba(10,25,48,0.55); padding: 4px 10px; border-radius: 20px;
+    z-index: 3; pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  #contador.esconder { opacity: 0; }
+</style>
+</head>
+<body>
+
+  <div id="gate">
+    <h1>Introduz o código de acesso</h1>
+    <input id="codigo-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="CÓDIGO">
+    <button id="codigo-botao">Entrar</button>
+    <div id="gate-erro"></div>
+  </div>
+
+  <div id="viewer">
+    <div id="pagina"></div>
+    <div class="zona-toque" id="zona-anterior"></div>
+    <div class="zona-toque" id="zona-seguinte"></div>
+    <div id="contador"></div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CHAVE_ACESSO = "absurdo_acesso_ok_v1";
+  var paginas = [];
+  var indiceAtual = 0;
+
+  // ---------- Portão de código ----------
+  async function sha256Hex(texto) {
+    var enc = new TextEncoder().encode(texto);
+    var buffer = await crypto.subtle.digest("SHA-256", enc);
+    var bytes = Array.from(new Uint8Array(buffer));
+    return bytes.map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  }
+
+  function normalizarCodigo(c) {
+    return c.trim().toUpperCase().replace(/\s+/g, "");
+  }
+
+  async function validarCodigo(codigo) {
+    var resposta = await fetch("hashes_codigos.json");
+    var hashesValidos = await resposta.json();
+    var hash = await sha256Hex(normalizarCodigo(codigo));
+    return hashesValidos.indexOf(hash) !== -1;
+  }
+
+  function mostrarLeitor() {
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("viewer").style.display = "block";
+    iniciarLeitor();
+  }
+
+  document.getElementById("codigo-botao").addEventListener("click", tentarCodigo);
+  document.getElementById("codigo-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") tentarCodigo();
+  });
+
+  async function tentarCodigo() {
+    var input = document.getElementById("codigo-input");
+    var erro = document.getElementById("gate-erro");
+    var codigo = normalizarCodigo(input.value);
+    if (!codigo) return;
+    erro.textContent = "";
+    try {
+      var valido = await validarCodigo(codigo);
+      if (valido) {
+        localStorage.setItem(CHAVE_ACESSO, "1");
+        mostrarLeitor();
+      } else {
+        erro.textContent = "Código inválido.";
+        input.value = "";
+      }
+    } catch (e) {
+      erro.textContent = "Erro a validar o código. Tenta outra vez.";
+    }
+  }
+
+  // ---------- Leitor ----------
+  async function iniciarLeitor() {
+    var resposta = await fetch("manifest.json");
+    paginas = await resposta.json();
+    indiceAtual = 0;
+    mostrarPagina(0);
+  }
+
+  function precarregar(i) {
+    if (i < 0 || i >= paginas.length) return;
+    var p = paginas[i];
+    if (p.type === "image") {
+      var img = new Image();
+      img.src = p.src;
+    }
+  }
+
+  function mostrarPagina(i) {
+    if (i < 0 || i >= paginas.length) return;
+    indiceAtual = i;
+    var container = document.getElementById("pagina");
+    container.innerHTML = "";
+    var p = paginas[i];
+    if (p.type === "image") {
+      var img = document.createElement("img");
+      img.src = p.src;
+      img.alt = "";
+      container.appendChild(img);
+    } else {
+      var div = document.createElement("div");
+      div.className = "texto-placeholder";
+      div.textContent = p.text || "";
+      container.appendChild(div);
+    }
+    precarregar(i + 1);
+    precarregar(i - 1);
+    atualizarContador();
+  }
+
+  function paginaSeguinte() { if (indiceAtual < paginas.length - 1) mostrarPagina(indiceAtual + 1); }
+  function paginaAnterior() { if (indiceAtual > 0) mostrarPagina(indiceAtual - 1); }
+
+  var contadorTimeout = null;
+  function atualizarContador() {
+    var contador = document.getElementById("contador");
+    contador.textContent = (indiceAtual + 1) + " / " + paginas.length;
+    contador.classList.remove("esconder");
+    clearTimeout(contadorTimeout);
+    contadorTimeout = setTimeout(function () { contador.classList.add("esconder"); }, 1800);
+  }
+
+  // toques nas zonas laterais
+  document.getElementById("zona-anterior").addEventListener("click", paginaAnterior);
+  document.getElementById("zona-seguinte").addEventListener("click", paginaSeguinte);
+
+  // deslizar (swipe) com o dedo
+  var toqueInicioX = null;
+  var LIMIAR_SWIPE = 50;
+  var viewerEl = document.getElementById("viewer");
+  viewerEl.addEventListener("touchstart", function (e) {
+    toqueInicioX = e.touches[0].clientX;
+  }, { passive: true });
+  viewerEl.addEventListener("touchend", function (e) {
+    if (toqueInicioX === null) return;
+    var dx = e.changedTouches[0].clientX - toqueInicioX;
+    if (dx < -LIMIAR_SWIPE) paginaSeguinte();
+    else if (dx > LIMIAR_SWIPE) paginaAnterior();
+    toqueInicioX = null;
+  });
+
+  // setas do teclado, para testares no computador
+  document.addEventListener("keydown", function (e) {
+    if (document.getElementById("viewer").style.display !== "block") return;
+    if (e.key === "ArrowRight") paginaSeguinte();
+    if (e.key === "ArrowLeft") paginaAnterior();
+  });
+
+  // se já validou o código antes neste dispositivo, entra direto
+  if (localStorage.getItem(CHAVE_ACESSO) === "1") {
+    mostrarLeitor();
+  }
+})();
+</script>
+</body>
+</html>
