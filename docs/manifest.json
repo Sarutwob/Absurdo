@@ -8,12 +8,12 @@
     "src": "paginas/002.jpg"
   },
   {
-    "type": "text",
-    "text": "PREFÁCIO (dupla página, a preencher)\n\nReservado para o prefácio — convite a Stewart Sukuma e/ou Mário Mabjaia."
-  },
-  {
     "type": "image",
     "src": "paginas/003.jpg"
+  },
+  {
+    "type": "text",
+    "text": "PREFÁCIO (dupla página, a preencher)\n\nReservado para o prefácio — convite a Stewart Sukuma e/ou Mário Mabjaia."
   },
   {
     "type": "image",
@@ -384,7 +384,11 @@
     "src": "paginas/095.jpg"
   },
   {
-    "type": "text",
-    "text": "HISTORIAL DO AUTOR (preencher)\n\nEspaço reservado para a biografia do Bruno Belchior — última página singular do livro."
+    "type": "image",
+    "src": "paginas/096.jpg"
+  },
+  {
+    "type": "image",
+    "src": "paginas/097.jpg"
   }
 ]
