@@ -12,10 +12,6 @@
     "src": "paginas/003.jpg"
   },
   {
-    "type": "text",
-    "text": "PREFÁCIO (dupla página, a preencher)\n\nReservado para o prefácio — convite a Stewart Sukuma e/ou Mário Mabjaia."
-  },
-  {
     "type": "image",
     "src": "paginas/004.jpg"
   },
@@ -390,5 +386,13 @@
   {
     "type": "image",
     "src": "paginas/097.jpg"
+  },
+  {
+    "type": "image",
+    "src": "paginas/098.jpg"
+  },
+  {
+    "type": "image",
+    "src": "paginas/099.jpg"
   }
 ]
